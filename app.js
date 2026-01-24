@@ -1,4 +1,5 @@
 import express from "express";
+import { createWriteStream } from "fs";
 import { readdir, rm,rename } from "fs/promises";
 
 const app = express();
@@ -20,6 +21,14 @@ app.get('/:filename', (req,res)=> {
   res.sendFile(`${import.meta.dirname}/storage/${filename}`)
 })
 
+app.post('/:filename',(req,res)=> {
+const writeStream = createWriteStream(`./storage/${req.params.filename}`)
+req.pipe(writeStream)
+
+req.on("end", ()=> {
+  res.json("File uploaded successfully.")
+})
+})
 app.delete("/:filename",async(req,res)=> {
   try {
     await rm(`./storage/${req.params.filename}`);
