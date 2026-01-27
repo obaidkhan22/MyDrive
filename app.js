@@ -1,62 +1,67 @@
 import express from "express";
 import { createWriteStream } from "fs";
-import { readdir, rm,rename } from "fs/promises";
+import { readdir, rename, rm, stat } from "fs/promises";
+import cors from "cors";
 
 const app = express();
-app.use(express.json())
-// Enabling CORS
-app.use((req, res, next) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "*");
-  res.set("Access-Control-Allow-Headers", "*");
-  next();
+
+app.use(express.json());
+app.use(cors());
+
+// Read
+const handler = async (req, res) => {
+  const { dirname } = req.params;
+  const fullDirPath = `./storage/${dirname ?? ""}`;
+  const filesList = await readdir(fullDirPath);
+
+  const resData = [];
+  for (const item of filesList) {
+    const stats = await stat(`${fullDirPath}/${item}`);
+    resData.push({ name: item, isDirectory: stats.isDirectory() });
+  }
+
+  res.json(resData);
+};
+
+app.get("/directory", handler);
+app.get("/directory/:dirname", handler);
+
+
+
+// Create
+app.post("/files/:filename", (req, res) => {
+  const writeStream = createWriteStream(`./storage/${req.params.filename}`);
+  req.pipe(writeStream);
+  req.on("end", () => {
+    res.json({ message: "File Uploaded" });
+  });
 });
 
-
-app.get('/:filename', (req,res)=> {
-  const {filename} = req.params;
-  if(req.query.action ==="download") {
-    res.set("Content-Disposition", "Attachment")
+app.get("/files/:filename", (req, res) => {
+  const { filename } = req.params;
+  if (req.query.action === "download") {
+    res.set("Content-Disposition", "attachment");
   }
-  res.sendFile(`${import.meta.dirname}/storage/${filename}`)
-})
+  res.sendFile(`${import.meta.dirname}/storage/${filename}`);
+});
 
-app.post('/:filename',(req,res)=> {
-const writeStream = createWriteStream(`./storage/${req.params.filename}`)
-req.pipe(writeStream)
+// Update
+app.patch("/files/:filename", async (req, res) => {
+  const { filename } = req.params;
+  await rename(`./storage/${filename}`, `./storage/${req.body.newFilename}`);
+  res.json({ message: "Renamed" });
+});
 
-req.on("end", ()=> {
-  res.json("File uploaded successfully.")
-})
-})
-app.delete("/:filename",async(req,res)=> {
+// Delete
+app.delete("/files/:filename", async (req, res) => {
+  const { filename } = req.params;
+  const filePath = `./storage/${filename}`;
   try {
-    await rm(`./storage/${req.params.filename}`);
-    res.json({message: "File Deleted Successfully."});
-    
-  } catch (error) {
-    res.status(404).json({message: "File not found."})
+    await rm(filePath);
+    res.json({ message: "File Deleted Successfully" });
+  } catch (err) {
+    res.status(404).json({ message: "File Not Found!" });
   }
-})
-
-app.patch("/:filename",async (req,res)=> { 
-  const {filename} = req.params
-  const{newFilename}= req.body
-  await rename(
-    `./storage/${filename}`,
-    `./storage/${newFilename}`
-  );
-  res.end("File renamed");
-})
-
-
-
-
-
-// Serving Dir Content
-app.get("/", async (req, res) => {
-  const filesList = await readdir("./storage");
-  res.json(filesList);
 });
 
 app.listen(4000, () => {
