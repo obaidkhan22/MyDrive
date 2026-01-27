@@ -9,58 +9,49 @@ app.use(express.json());
 app.use(cors());
 
 // Read
-const handler = async (req, res) => {
-  const { dirname } = req.params;
-  const fullDirPath = `./storage/${dirname ?? ""}`;
+app.get("/directory/?*", async (req, res) => {
+  const { 0: dirname } = req.params;
+  const fullDirPath = `./storage/${dirname ? dirname : ""}`;
   const filesList = await readdir(fullDirPath);
-
   const resData = [];
   for (const item of filesList) {
     const stats = await stat(`${fullDirPath}/${item}`);
     resData.push({ name: item, isDirectory: stats.isDirectory() });
   }
-
   res.json(resData);
-};
-
-app.get("/directory", handler);
-app.get("/directory/:dirname", handler);
-
-
+});
 
 // Create
-app.post("/files/:filename", (req, res) => {
-  const writeStream = createWriteStream(`./storage/${req.params.filename}`);
+app.post("/files/*", (req, res) => {
+  const writeStream = createWriteStream(`./storage/${req.params[0]}`);
   req.pipe(writeStream);
   req.on("end", () => {
     res.json({ message: "File Uploaded" });
   });
 });
 
-app.get("/files/:filename", (req, res) => {
-  const { filename } = req.params;
+app.get("/files/*", (req, res) => {
+  const { 0: filePath } = req.params;
   if (req.query.action === "download") {
     res.set("Content-Disposition", "attachment");
   }
-  res.sendFile(`${import.meta.dirname}/storage/${filename}`);
+  res.sendFile(`${import.meta.dirname}/storage/${filePath}`);
 });
 
 // Update
-app.patch("/files/:filename", async (req, res) => {
-  const { filename } = req.params;
-  await rename(`./storage/${filename}`, `./storage/${req.body.newFilename}`);
+app.patch("/files/*", async (req, res) => {
+  const { 0: filePath } = req.params;
+  await rename(`./storage/${filePath}`, `./storage/${req.body.newFilename}`);
   res.json({ message: "Renamed" });
 });
-
 // Delete
-app.delete("/files/:filename", async (req, res) => {
-  const { filename } = req.params;
-  const filePath = `./storage/${filename}`;
+app.delete("/files/*", async (req, res) => {
+  const { 0: filePath } = req.params;
   try {
-    await rm(filePath);
+    await rm(`./storage/${filePath}`, { recursive: true });
     res.json({ message: "File Deleted Successfully" });
   } catch (err) {
-    res.status(404).json({ message: "File Not Found!" });
+    res.status(404).json({ message: err.message });
   }
 });
 
