@@ -6,17 +6,15 @@ function DirectoryView() {
   const [directoryItems, setDirectoryItems] = useState([]);
   const [progress, setProgress] = useState(0);
   const [newFilename, setNewFilename] = useState("");
+  const [dirName, setDirName] = useState("");
   const { "*": dirPath } = useParams();
-  console.log(dirPath);
 
   async function getDirectoryItems() {
     const response = await fetch(`${BASE_URL}/directory/${dirPath}`);
     const data = await response.json();
     setDirectoryItems(data);
   }
-  useEffect(() => {
-    getDirectoryItems();
-  }, [dirPath]);
+
 
   async function uploadFile(e) {
     const file = e.target.files[0];
@@ -65,6 +63,20 @@ function DirectoryView() {
     getDirectoryItems();
   }
 
+    const handleCreateDirectory = async(e)=> {
+      e.preventDefault()
+      const response = await fetch(`${BASE_URL}/directory/${dirPath? '/'+dirName : ""}/${dirName}`,{
+        method: "POST",
+        
+      })
+      const data= await response.json()
+      console.log(data)
+      getDirectoryItems()
+    }
+
+    useEffect(() => {
+      getDirectoryItems();
+    }, [dirPath]);
   return (
     <>
       <h1>My Files</h1>
@@ -75,6 +87,10 @@ function DirectoryView() {
         value={newFilename}
       />
       <p>Progress: {progress}%</p>
+      <form onSubmit={handleCreateDirectory}>
+        <input type="text" onChange={(e)=> setDirName(e.target.value)}/>
+        <button type="submit">Create Folder</button>
+      </form>
       {directoryItems.map(({ name, isDirectory }, i) => (
         <div key={i}>
           {name} {isDirectory && <Link to={`./${name}`}>Open</Link>}

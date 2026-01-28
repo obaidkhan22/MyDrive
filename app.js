@@ -1,8 +1,8 @@
 import express from "express";
 import { createWriteStream } from "fs";
-import { readdir, rename, rm, stat } from "fs/promises";
+import { mkdir, readdir, rename, rm, stat } from "fs/promises";
 import cors from "cors";
-
+import path from 'path'
 const app = express();
 
 app.use(express.json());
@@ -10,7 +10,7 @@ app.use(cors());
 
 // Read
 app.get("/directory/?*", async (req, res) => {
-  const { 0: dirname } = req.params;
+  const dirname= path.join('/',req.params[0])
   const fullDirPath = `./storage/${dirname ? dirname : ""}`;
   const filesList = await readdir(fullDirPath);
   const resData = [];
@@ -20,6 +20,18 @@ app.get("/directory/?*", async (req, res) => {
   }
   res.json(resData);
 });
+
+app.post("/directory/?*", async(req,res)=> {
+  const dirname= path.join('/',req.params[0])
+try {
+  await mkdir(`./storage/${dirname}`)
+  res.json({message: "Folder created successfully."})
+  
+} catch (error) {
+  console.log(error.message)
+}
+})
+
 
 // Create
 app.post("/files/*", (req, res) => {
@@ -31,16 +43,20 @@ app.post("/files/*", (req, res) => {
 });
 
 app.get("/files/*", (req, res) => {
-  const { 0: filePath } = req.params;
+  const filePath= path.join('/',req.params[0])
   if (req.query.action === "download") {
     res.set("Content-Disposition", "attachment");
   }
-  res.sendFile(`${import.meta.dirname}/storage/${filePath}`);
+  res.sendFile(`${import.meta.dirname}/storage/${filePath}`,(err)=> {
+    if(err){
+      res.json({error:"File not found!"})
+    }
+  });
 });
 
 // Update
 app.patch("/files/*", async (req, res) => {
-  const { 0: filePath } = req.params;
+  const filePath= path.join('/',req.params[0])
   await rename(`./storage/${filePath}`, `./storage/${req.body.newFilename}`);
   res.json({ message: "Renamed" });
 });
