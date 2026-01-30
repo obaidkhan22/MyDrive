@@ -12,7 +12,6 @@ router.get("/:id?", async (req, res) => {
   const {id} = req.params
   if(!id){
     const directoryData = directoriesData[0]
-    console.log(directoryData)
    const files = directoryData.files.map((fileId) => filesData.find((file)=>fileId ===file. id))
     
 
