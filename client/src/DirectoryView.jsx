@@ -3,16 +3,16 @@ import { Link, useParams } from "react-router-dom";
 
 function DirectoryView() {
   const BASE_URL = "http://localhost:4000";
-  const [directoryItems, setDirectoryItems] = useState([]);
+
   const [directoriesList, setDirectoriesList] = useState([]);
   const [filesList, setFilesList] = useState([]);
   const [progress, setProgress] = useState(0);
   const [newFilename, setNewFilename] = useState("");
   const [dirName, setDirName] = useState("");
-  const { "*": dirPath } = useParams();
+  const { dirId } = useParams();
 
   async function getDirectoryItems() {
-    const response = await fetch(`${BASE_URL}/directory/${dirPath}`);
+    const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`);
     const data = await response.json();
     setDirectoriesList(data.directories);
     setFilesList(data.files);
@@ -22,7 +22,8 @@ function DirectoryView() {
   async function uploadFile(e) {
     const file = e.target.files[0];
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${BASE_URL}/file/${file.name}`, true);
+    xhr.open("POST", `${BASE_URL}/file/${dirId || ""}`, true);
+    xhr.setRequestHeader("filename", file.name)
     xhr.addEventListener("load", () => {
       console.log(xhr.response);
       getDirectoryItems();
@@ -30,6 +31,9 @@ function DirectoryView() {
     xhr.upload.addEventListener("progress", (e) => {
       const totalProgress = (e.loaded / e.total) * 100;
       setProgress(totalProgress.toFixed(2));
+      setTimeout(() => {
+        setProgress(0)
+      }, 5000)
     });
     xhr.send(file);
   }
@@ -67,8 +71,11 @@ function DirectoryView() {
 
   const handleCreateDirectory = async (e) => {
     e.preventDefault()
-    const response = await fetch(`${BASE_URL}/directory/${dirPath ? '/' + dirName : ""}/${dirName}`, {
+    const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
       method: "POST",
+      headers: {
+        dirname: dirName
+      }
 
     })
     const data = await response.json()
@@ -76,9 +83,36 @@ function DirectoryView() {
     getDirectoryItems()
   }
 
+
+
+  const saveDirName = async (id) => {
+    const response = await fetch(
+      `${BASE_URL}/directory/${id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newDirName: newFilename }),
+      }
+    );
+    const data = await response.text();
+    console.log(data);
+    setNewFilename("");
+    getDirectoryItems();
+  }
+
+  const handleDirDelete = async (id) => {
+    const response = await fetch(`${BASE_URL}/directory/${id}`, {
+      method: "DELETE",
+    })
+    const data = await response.json()
+    console.log(data)
+    getDirectoryItems()
+  }
   useEffect(() => {
     getDirectoryItems();
-  }, [dirPath]);
+  }, [dirId]);
   return (
     <>
       <h1>My Files</h1>
@@ -93,6 +127,28 @@ function DirectoryView() {
         <input type="text" onChange={(e) => setDirName(e.target.value)} />
         <button type="submit">Create Folder</button>
       </form>
+      {directoriesList.map(({ name, id }) => (
+        <div key={id}>
+          {name}
+
+          <Link to={`/directory/${id}`}>
+            Open
+          </Link>
+          <button onClick={() => renameFile(name)}>Rename</button>
+          <button onClick={() => saveDirName(id)}>Save</button>
+          <button
+            onClick={() => {
+              handleDirDelete(id);
+            }}
+          >
+            Delete
+          </button>
+          <br />
+        </div>
+      ))}
+
+
+
 
       {filesList.map(({ name, id }) => (
         <div key={id}>
