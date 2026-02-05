@@ -5,7 +5,7 @@ import { writeFile } from "node:fs/promises";
 
 const router = Router()
 
-router.post('/', async (req, res, next) => {
+router.post('/register', async (req, res, next) => {
    const { name, email, password } = req.body
    const user = usersData.find((user) => user.email === email)
    if (user) return res.status(409).json({ error: "User already exists.", message: "Register with a different email." })
@@ -20,6 +20,7 @@ router.post('/', async (req, res, next) => {
       directories: []
    })
    usersData.push({
+      id: userId,
       name,
       email,
       password,
@@ -32,6 +33,22 @@ router.post('/', async (req, res, next) => {
    } catch (error) {
       next(error)
    }
+})
+
+router.post('/login', (req, res) => {
+   const { email, password } = req.body
+
+   const user = usersData.find((user) => user.email === email)
+   if (!user || user.password !== password) {
+      return res.status(404).json({ message: "Invalid Credentials." })
+   }
+   res.cookie("uid", user.id, {
+      maxAge: 60 * 60 * 1000,
+      sameSite: "none",
+      secure: true,
+      httpOnly: true
+   })
+   res.status(200).json({ message: "Login Successfully" })
 })
 
 export default router

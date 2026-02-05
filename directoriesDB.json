@@ -1,10 +1,1 @@
-[
-   {
-      "id": "03748705-da05-42b5-9ec2-ea9f8daf5223",
-      "name": "root-anurag@gmail.com",
-      "userId": "ae49c1bf-b384-44cc-80ff-1dba687ccffc",
-      "parentDirId": null,
-      "files": [],
-      "directories": []
-   }
-]
+[{"id":"346a37c4-4e7a-4e4d-a3b4-494000f3c157","name":"root-anurag@gmail.com","userId":"bc15934c-512c-4723-9020-931534000381","parentDirId":null,"files":["1d57f187-1203-4e23-aae5-a051f213d912"],"directories":["34e4b162-b90a-4dc7-9d59-c28f0cc49674"]},{"id":"34e4b162-b90a-4dc7-9d59-c28f0cc49674","name":"New Folder","parentDirId":"346a37c4-4e7a-4e4d-a3b4-494000f3c157","files":[],"directories":[]}]

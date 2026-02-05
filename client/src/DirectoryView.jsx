@@ -42,14 +42,17 @@ function DirectoryView() {
    * Fetch directory contents
    */
   async function getDirectoryItems() {
-    const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`);
+    const response = await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
+      credentials: "include"
+    });
     const data = await response.json();
-
     // Set directory name
     if (data.name) {
       setDirectoryName(dirId ? data.name : "My Drive");
     } else {
+
       setDirectoryName("My Drive");
+      navigate('/login')
     }
 
     // Reverse the directories and files so new items are on top
@@ -248,8 +251,9 @@ function DirectoryView() {
    */
   async function handleCreateDirectory(e) {
     e.preventDefault();
-    await fetch(`${BASE_URL}/directory/${dirId || ""}`, {
+    await fetch(`${BASE_URL}/directory${dirId ? '/' + dirId : ""}`, {
       method: "POST",
+      credentials: "include",
       headers: {
         dirname: newDirname,
       },
