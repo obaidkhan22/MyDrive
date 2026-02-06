@@ -2,7 +2,7 @@ import { Router } from "express";
 import usersData from '../usersDB.json' with {type: "json"}
 import directoriesData from '../directoriesDB.json' with {type: "json"}
 import { writeFile } from "node:fs/promises";
-
+import { checkAuth } from '../authMiddleware.js'
 const router = Router()
 
 router.post('/register', async (req, res, next) => {
@@ -51,4 +51,18 @@ router.post('/login', (req, res) => {
    res.status(200).json({ message: "Login Successfully" })
 })
 
+
+router.post("/logout", (req, res) => {
+   res.clearCookie("uid")
+   res.status(204).end()
+
+})
+
+
+router.get('/', checkAuth, (req, res) => {
+   return res.status(200).json({
+      name: req.user.name,
+      email: req.user.email
+   })
+})
 export default router

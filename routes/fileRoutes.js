@@ -8,7 +8,7 @@ import directoriesData from '../directoriesDB.json' with {type: "json"}
 const router = express.Router()
 // Create
 router.post("/:parentDirId?", (req, res) => {
-  const parentDirId = req.params['parentDirId'] || directoriesData[0].id
+  const parentDirId = req.params['parentDirId'] || req.user.rootDirId
 
   const filename = req.headers.filename || "untitled"
   const extension = path.extname(filename)
@@ -20,6 +20,7 @@ router.post("/:parentDirId?", (req, res) => {
     filesData.push({
       id,
       extension,
+      userId: req.user.id,
       name: filename,
       parentDirId
     })
@@ -40,6 +41,9 @@ router.post("/:parentDirId?", (req, res) => {
 router.get("/:id", (req, res) => {
   const { id } = req.params;
   const fileData = filesData.find((file) => file.id === id)
+  if (fileData.userId !== req.user.id) {
+    return res.status(401).json({ message: "You don't have access to this recourse." })
+  }
   if (!fileData) return res.status(404).json({ message: "File not found!" })
   if (req.query.action === "download") {
     res.set("Content-Disposition", `attachment; filename=${fileData.name}`);
@@ -56,6 +60,9 @@ router.patch("/:id", async (req, res, next) => {
   const { id } = req.params
   const { newFilename } = req.body
   const file = filesData.find((file) => file.id === id)
+  if (file.userId !== req.user.id) {
+    return res.status(401).json({ message: "Not authorized!" })
+  }
   file.name = newFilename
 
   try {
@@ -73,6 +80,9 @@ router.delete("/:id", async (req, res, next) => {
   const fileIndex = filesData.findIndex((file) => file.id === id)
   if (fileIndex === -1) return res.status(404).json({ message: "File not found." })
   const fileData = filesData[fileIndex]
+  if (fileData.userId !== req.user.id) {
+    return res.status(401).json({ message: "Not authorized!" })
+  }
   try {
     await rm(`./storage/${id}${fileData.extension}`, { recursive: true });
     filesData.splice(fileIndex, 1)

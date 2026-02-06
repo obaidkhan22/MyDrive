@@ -7,13 +7,11 @@ import usersData from '../usersDB.json' with {type: "json"}
 const router = express.Router()
 
 router.get("/:id?", async (req, res) => {
-  const { uid } = req.cookies
-  const user = usersData.find((user) => user.id === uid)
-  if (!uid || !user) {
-    return res.status(401).json({ message: "Not logged in!" })
-  }
-  const id = req.params.id || directoriesData[0].id
+  const id = req.params.id || req.user.rootDirId
   let directoryData = directoriesData.find((folder) => folder.id === id)
+  if (directoryData.userId !== req.user.id) {
+    return res.status(401).json({ message: "Not Authorized!" })
+  }
   if (!directoryData) return res.status(404).json({ message: "Directory not found." })
   const files = directoryData.files.map((fileId) => filesData.find((file) => fileId === file.id))
   const directories = directoryData.directories.map((dir) => directoriesData.find((dirId) => dir === dirId.id))
@@ -21,7 +19,7 @@ router.get("/:id?", async (req, res) => {
 });
 
 router.post("/:parentDirId?", async (req, res, next) => {
-  const parentDirId = req.params.parentDirId || directoriesData[0].id
+  const parentDirId = req.params.parentDirId || req.user.rootDirId
   console.log(parentDirId)
   const dirname = req.headers.dirname || "New Folder"
   const id = crypto.randomUUID()
@@ -34,6 +32,7 @@ router.post("/:parentDirId?", async (req, res, next) => {
     name: dirname,
     parentDirId,
     files: [],
+    userId: req.user.id,
     directories: []
   })
   try {
@@ -50,6 +49,10 @@ router.patch("/:dirId", async (req, res, next) => {
 
   const dirIndex = directoriesData.findIndex((dir) => dir.id === dirId)
   const dirData = directoriesData[dirIndex]
+
+  if (dirData.userId !== req.user.id) {
+    return res.status(401).json({ message: "Not Authorized!" })
+  }
   if (!dirData) return res.status(404).json({ message: "Directory not found." })
   dirData.name = newDirName
   try {
@@ -67,6 +70,9 @@ router.delete("/:id", async (req, res, next) => {
     //delete it from the json file
     const dirIndex = directoriesData.findIndex((dir) => dir.id === id)
     const dirData = directoriesData[dirIndex]
+    if (dirData.userId !== req.user.id) {
+      return res.status(401).json({ message: "Not Authorized!" })
+    }
     directoriesData.splice(dirIndex, 1)
 
     //delete all the files inside the directory
