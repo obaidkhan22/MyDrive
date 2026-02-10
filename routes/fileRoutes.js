@@ -4,6 +4,7 @@ import { rename, rm, writeFile } from "fs/promises";
 import path from 'path';
 import filesData from '../filesDB.json' with {type: "json"}
 import directoriesData from '../directoriesDB.json' with {type: "json"}
+import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
 
 const router = express.Router()
 
