@@ -3,8 +3,12 @@ import { rm, writeFile } from 'fs/promises';
 import directoriesData from '../directoriesDB.json' with { type: "json" };
 import filesData from '../filesDB.json' with { type: "json" };
 import usersData from '../usersDB.json' with {type: "json"}
+import validateIdMiddleware from '../middlewares/validateIdMiddleware';
 
 const router = express.Router()
+
+router.param('parentDirId', validateIdMiddleware)
+router.param('id', validateIdMiddleware)
 
 router.get("/:id?", async (req, res) => {
   const id = req.params.id || req.user.rootDirId

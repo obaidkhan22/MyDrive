@@ -6,6 +6,10 @@ import filesData from '../filesDB.json' with {type: "json"}
 import directoriesData from '../directoriesDB.json' with {type: "json"}
 
 const router = express.Router()
+
+router.param('parentDirId', validateIdMiddleware)
+router.param('id', validateIdMiddleware)
+
 // Create
 router.post("/:parentDirId?", (req, res) => {
   const parentDirId = req.params['parentDirId'] || req.user.rootDirId
@@ -45,10 +49,11 @@ router.get("/:id", (req, res) => {
     return res.status(401).json({ message: "You don't have access to this recourse." })
   }
   if (!fileData) return res.status(404).json({ message: "File not found!" })
+  const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`
   if (req.query.action === "download") {
-    res.set("Content-Disposition", `attachment; filename=${fileData.name}`);
+    return res.download(filePath, fileData.name);
   }
-  return res.sendFile(`${process.cwd()}/storage/${id}${fileData.extension}`, (err) => {
+  return res.sendFile(filePath, (err) => {
     if (!res.setHeaders && err) {
       return res.status(404).json({ error: "File not found!" })
     }
