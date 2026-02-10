@@ -25,7 +25,7 @@ app.use('/directory', checkAuth, directoryRoutes)
 app.use('/user', userRoutes)
 
 app.use((err, req, res, next) => {
-  return res.status(err.status || 500).json({ message: "Something went wrong." })
+  return res.status(err.status || 500).json({ message: err.message })
 })
 
 app.listen(4000, () => {

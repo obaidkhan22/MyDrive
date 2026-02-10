@@ -33,7 +33,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch(`${BASE_URL}/user/login`, {
+      const res = await fetch(`${BASE_URL}/user/login`, {
         method: "POST",
         body: JSON.stringify(formData),
         headers: {
@@ -41,8 +41,7 @@ const Login = () => {
         },
         credentials: "include",
       });
-
-      const data = await response.json();
+      const data = await res.json();
       if (data.error) {
         // If there's an error, set the serverError message
         setServerError(data.error);

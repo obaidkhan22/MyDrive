@@ -11,7 +11,6 @@ router.param('parentDirId', validateIdMiddleware)
 router.param('id', validateIdMiddleware)
 
 router.get("/:id?", async (req, res) => {
-  console.log(req.db)
   const id = req.params.id || req.user.rootDirId
   let directoryData = directoriesData.find((folder) => folder.id === id)
   if (directoryData.userId !== req.user.id) {
