@@ -2,7 +2,6 @@ import express from 'express';
 import { rm, writeFile } from 'fs/promises';
 import directoriesData from '../directoriesDB.json' with { type: "json" };
 import filesData from '../filesDB.json' with { type: "json" };
-
 import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
 import { ObjectId } from 'mongodb';
 
@@ -14,16 +13,17 @@ router.param('id', validateIdMiddleware)
 //read  
 router.get("/:id?", async (req, res) => {
   const db = req.db
-  const id = req.params.id || req.user.rootDirId
+  const _id = req.params.id ? new ObjectId(req.params.id) : req.user.rootDirId
   const dirCollection = db.collection('directories')
-  const directoryData = await dirCollection.findOne({ _id: new ObjectId(id) })
+  const directoryData = await dirCollection.findOne({ _id })
   // if (directoryData.userId !== req.user._id) {
   //   return res.status(401).json({ message: "Not Authorized!" })
   // }
   if (!directoryData) return res.status(404).json({ message: "Directory not found." })
-  const files = []
-  const directories = await dirCollection.find({ parentDirId: new ObjectId(id) }).toArray()
-  return res.status(200).json({ ...directoryData, files, directories: directories.map((dir) => ({ ...dir, id: dir._id })) })
+  const files = await db.collection("files").find({ parentDirId: directoryData._id }).toArray()
+
+  const directories = await dirCollection.find({ parentDirId: _id }).toArray()
+  return res.status(200).json({ ...directoryData, files: files.map((file) => ({ ...file, id: file._id })), directories: directories.map((dir) => ({ ...dir, id: dir._id })) })
 });
 
 //create

@@ -5,6 +5,7 @@ import path from 'path';
 import filesData from '../filesDB.json' with {type: "json"}
 import directoriesData from '../directoriesDB.json' with {type: "json"}
 import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
+import { ObjectId } from 'mongodb';
 
 const router = express.Router()
 
@@ -12,28 +13,26 @@ router.param('parentDirId', validateIdMiddleware)
 router.param('id', validateIdMiddleware)
 
 // Create
-router.post("/:parentDirId?", (req, res) => {
+router.post("/:parentDirId?", async (req, res) => {
   const parentDirId = req.params['parentDirId'] || req.user.rootDirId
-
+  const db = req.db
+  const dirCollection = db.collection("directories")
+  const parentDirData = await dirCollection.findOne({ _id: new ObjectId(parentDirId), userId: req.user._id })
+  if (!parentDirData) {
+    return res.status(404).json({ error: "Parent directory not found!" })
+  }
   const filename = req.headers.filename || "untitled"
   const extension = path.extname(filename)
-  const id = crypto.randomUUID()
-  const fullName = id + extension
+  const { insertedId } = await db.collection("files").insertOne({
+    extension,
+    name: filename,
+    parentDirId: parentDirData._id
+  })
+  const fullName = `${insertedId.toString()}${extension}`
   const writeStream = createWriteStream(`./storage/${fullName}`);
   req.pipe(writeStream);
   req.on("end", async () => {
-    filesData.push({
-      id,
-      extension,
-      userId: req.user.id,
-      name: filename,
-      parentDirId
-    })
-    const fileDir = directoriesData.find((dir) => dir.id === parentDirId)
-    fileDir.files.push(id)
     try {
-      await writeFile('./filesDB.json', JSON.stringify(filesData))
-      await writeFile('./directoriesDB.json', JSON.stringify(directoriesData))
       return res.status(201).json({ message: "File Uploaded" });
 
     } catch (error) {
