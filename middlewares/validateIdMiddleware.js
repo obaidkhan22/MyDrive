@@ -1,9 +1,8 @@
-export default function validateIdMiddleware(id) {
+export default function validateIdMiddleware(req, res, next, id) {
 
-   const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 
-   if (!uuidRegex.test(id)) {
+   if (id.length !== 24) {
       return res.status(400).json({ message: "Invalid ID." })
    }
-   nextT()
+   next()
 }

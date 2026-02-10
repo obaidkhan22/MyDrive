@@ -6,15 +6,13 @@ router.post('/register', async (req, res, next) => {
    const { name, email, password } = req.body
    try {
       const db = req.db
-      const user = await db.collection("users").find({ email })
+      const user = await db.collection("users").findOne({ email })
       if (user) {
          return res.status(409).json({ error: "User already exists.", message: "Register with a different email." })
       }
       const { insertedId: rootDirId } = await db.collection("directories").insertOne({
          name: `root-${email}`,
          parentDirId: null,
-         files: [],
-         directories: []
       })
 
       const { insertedId: userId } = await db.collection("users").insertOne({
@@ -38,7 +36,7 @@ router.post('/login', async (req, res, next) => {
       if (!user || user.password !== password) {
          return res.status(404).json({ error: "Invalid Credentials." })
       }
-      const userId = user._id.id.toString()
+      const userId = user._id.toString()
       res.cookie("uid", userId, {
          maxAge: 60 * 60 * 1000,
          sameSite: "none",
