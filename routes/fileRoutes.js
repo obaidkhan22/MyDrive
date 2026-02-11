@@ -1,53 +1,50 @@
-import express from 'express'
+import express from 'express';
 import { createWriteStream } from "fs";
-import { rename, rm, writeFile } from "fs/promises";
-import path from 'path';
-import filesData from '../filesDB.json' with {type: "json"}
-import directoriesData from '../directoriesDB.json' with {type: "json"}
-import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
+import { rm } from "fs/promises";
 import { ObjectId } from 'mongodb';
-
+import path from 'path';
+import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
 const router = express.Router()
 
 router.param('parentDirId', validateIdMiddleware)
 router.param('id', validateIdMiddleware)
 
-// Create
+// Create 
 router.post("/:parentDirId?", async (req, res) => {
   const parentDirId = req.params['parentDirId'] || req.user.rootDirId
   const db = req.db
   const dirCollection = db.collection("directories")
+  const filesCollection = db.collection("files")
   const parentDirData = await dirCollection.findOne({ _id: new ObjectId(parentDirId), userId: req.user._id })
   if (!parentDirData) {
     return res.status(404).json({ error: "Parent directory not found!" })
   }
   const filename = req.headers.filename || "untitled"
   const extension = path.extname(filename)
-  const { insertedId } = await db.collection("files").insertOne({
+  const { insertedId } = await filesCollection.insertOne({
     extension,
     name: filename,
-    parentDirId: parentDirData._id
+    parentDirId: parentDirData._id,
+    userId: req.user._id
   })
   const fullName = `${insertedId.toString()}${extension}`
   const writeStream = createWriteStream(`./storage/${fullName}`);
   req.pipe(writeStream);
   req.on("end", async () => {
-    try {
-      return res.status(201).json({ message: "File Uploaded" });
-
-    } catch (error) {
-      return res.status(500).json({ message: "Could not save file." })
-    }
+    return res.status(201).json({ message: "File Uploaded" })
   });
+  req.on("error", async () => {
+    console.log("error")
+    await filesCollection.deleteOne({ _id: insertedId })
+    return res.status(400).json("Could not upload file ")
+  })
 });
 
 //Read
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   const { id } = req.params;
-  const fileData = filesData.find((file) => file.id === id)
-  if (fileData.userId !== req.user.id) {
-    return res.status(401).json({ message: "You don't have access to this recourse." })
-  }
+  const db = req.db
+  const fileData = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
   if (!fileData) return res.status(404).json({ message: "File not found!" })
   const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`
   if (req.query.action === "download") {
@@ -64,15 +61,11 @@ router.get("/:id", (req, res) => {
 router.patch("/:id", async (req, res, next) => {
   const { id } = req.params
   const { newFilename } = req.body
-  const file = filesData.find((file) => file.id === id)
-  if (file.userId !== req.user.id) {
-    return res.status(401).json({ message: "Not authorized!" })
-  }
-  file.name = newFilename
-
+  const db = req.db
   try {
-
-    await writeFile('./filesDB.json', JSON.stringify(filesData))
+    const file = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
+    if (!file) return res.status(404).json({ error: "File not found." })
+    await db.collection("files").updateOne({ _id: new ObjectId(id) }, { $set: { name: newFilename || "untitled" } })
     return res.status(200).json({ message: "Renamed" });
   } catch (error) {
     error.status = 500
@@ -82,20 +75,13 @@ router.patch("/:id", async (req, res, next) => {
 // Delete
 router.delete("/:id", async (req, res, next) => {
   const { id } = req.params
-  const fileIndex = filesData.findIndex((file) => file.id === id)
-  if (fileIndex === -1) return res.status(404).json({ message: "File not found." })
-  const fileData = filesData[fileIndex]
-  if (fileData.userId !== req.user.id) {
-    return res.status(401).json({ message: "Not authorized!" })
-  }
+  const db = req.db
   try {
-    await rm(`./storage/${id}${fileData.extension}`, { recursive: true });
-    filesData.splice(fileIndex, 1)
-    const parentDirData = directoriesData.find((directoryData) => directoryData.id === fileData.parentDirId)
-    parentDirData.files = parentDirData.files.filter((fileId) => fileId !== id)
-    console.log(parentDirData.files);
-    await writeFile('./filesDB.json', JSON.stringify(filesData))
-    await writeFile('./directoriesDB.json', JSON.stringify(directoriesData))
+    const file = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
+    if (!file) return res.status(404).json({ error: "File not found." })
+    await db.collection("files").deleteOne({ _id: new ObjectId(id) })
+    await rm(`./storage/${id}${file.extension}`
+    );
     return res.status(200).json({ message: "File Deleted Successfully" });
   } catch (err) {
     next(err)

@@ -157,6 +157,7 @@ function DirectoryView() {
         isUploading: false,
       };
     });
+    console.log(newItems)
 
     // Put them at the top of the existing list
     setFilesList((prev) => [...newItems, ...prev]);
@@ -386,7 +387,7 @@ function DirectoryView() {
       {/* Top error message for general errors */}
       {errorMessage &&
         errorMessage !==
-          "Directory not found or you do not have access to it!" && (
+        "Directory not found or you do not have access to it!" && (
           <div className="error-message">{errorMessage}</div>
         )}
 
@@ -427,7 +428,7 @@ function DirectoryView() {
       {combinedItems.length === 0 ? (
         // Check if the error is specifically the "no access" error
         errorMessage ===
-        "Directory not found or you do not have access to it!" ? (
+          "Directory not found or you do not have access to it!" ? (
           <p className="no-data-message">
             Directory not found or you do not have access to it!
           </p>
