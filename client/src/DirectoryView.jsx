@@ -46,14 +46,8 @@ function DirectoryView() {
    */
   async function handleFetchErrors(response) {
     if (!response.ok) {
-      let errMsg = `Request failed with status ${response.status}`;
-      try {
-        const data = await response.json();
-        if (data.error) errMsg = data.error;
-      } catch (_) {
-        // If JSON parsing fails, default errMsg stays
-      }
-      throw new Error(errMsg);
+      const data = await response.json();
+      throw new Error(data.message);
     }
     return response;
   }
@@ -91,6 +85,7 @@ function DirectoryView() {
     getDirectoryItems();
     // Reset context menu
     setActiveContextMenu(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dirId]);
 
   /**
@@ -157,7 +152,7 @@ function DirectoryView() {
         isUploading: false,
       };
     });
-    console.log(newItems)
+    console.log(newItems);
 
     // Put them at the top of the existing list
     setFilesList((prev) => [...newItems, ...prev]);
@@ -201,8 +196,8 @@ function DirectoryView() {
     // Mark it as isUploading: true
     setFilesList((prev) =>
       prev.map((f) =>
-        f.id === currentItem.id ? { ...f, isUploading: true } : f
-      )
+        f.id === currentItem.id ? { ...f, isUploading: true } : f,
+      ),
     );
 
     // Start upload
@@ -244,6 +239,7 @@ function DirectoryView() {
 
     // Remove from progressMap
     setProgressMap((prev) => {
+      // eslint-disable-next-line no-unused-vars
       const { [tempId]: _, ...rest } = prev;
       return rest;
     });
@@ -336,7 +332,7 @@ function DirectoryView() {
         body: JSON.stringify(
           renameType === "file"
             ? { newFilename: renameValue }
-            : { newDirName: renameValue }
+            : { newDirName: renameValue },
         ),
         credentials: "include",
       });
@@ -387,7 +383,7 @@ function DirectoryView() {
       {/* Top error message for general errors */}
       {errorMessage &&
         errorMessage !==
-        "Directory not found or you do not have access to it!" && (
+          "Directory not found or you do not have access to it!" && (
           <div className="error-message">{errorMessage}</div>
         )}
 
@@ -428,7 +424,7 @@ function DirectoryView() {
       {combinedItems.length === 0 ? (
         // Check if the error is specifically the "no access" error
         errorMessage ===
-          "Directory not found or you do not have access to it!" ? (
+        "Directory not found or you do not have access to it!" ? (
           <p className="no-data-message">
             Directory not found or you do not have access to it!
           </p>

@@ -1,91 +1,130 @@
-import express from 'express';
+import express from "express";
 import { createWriteStream } from "fs";
 import { rm } from "fs/promises";
-import { ObjectId } from 'mongodb';
-import path from 'path';
-import validateIdMiddleware from '../middlewares/validateIdMiddleware.js';
-const router = express.Router()
+import path from "path";
+import validateIdMiddleware from "../middlewares/validateIdMiddleware.js";
+import { ObjectId } from "mongodb";
 
-router.param('parentDirId', validateIdMiddleware)
-router.param('id', validateIdMiddleware)
+const router = express.Router();
 
-// Create 
-router.post("/:parentDirId?", async (req, res) => {
-  const parentDirId = req.params['parentDirId'] || req.user.rootDirId
-  const db = req.db
-  const dirCollection = db.collection("directories")
-  const filesCollection = db.collection("files")
-  const parentDirData = await dirCollection.findOne({ _id: new ObjectId(parentDirId), userId: req.user._id })
+router.param("parentDirId", validateIdMiddleware);
+router.param("id", validateIdMiddleware);
+
+router.post("/:parentDirId?", async (req, res, next) => {
+  const db = req.db;
+  const dirCollection = db.collection("directories");
+  const filesCollection = await db.collection("files");
+  const parentDirId = req.params.parentDirId || req.user.rootDirId;
+  const parentDirData = await dirCollection.findOne({
+    _id: new ObjectId(parentDirId),
+    userId: req.user._id,
+  });
+
+  // Check if parent directory exists
   if (!parentDirData) {
-    return res.status(404).json({ error: "Parent directory not found!" })
+    return res.status(404).json({ error: "Parent directory not found!" });
   }
-  const filename = req.headers.filename || "untitled"
-  const extension = path.extname(filename)
-  const { insertedId } = await filesCollection.insertOne({
+
+  const filename = req.headers.filename || "untitled";
+  const extension = path.extname(filename);
+
+  const insertedFile = await filesCollection.insertOne({
     extension,
     name: filename,
     parentDirId: parentDirData._id,
-    userId: req.user._id
-  })
-  const fullName = `${insertedId.toString()}${extension}`
-  const writeStream = createWriteStream(`./storage/${fullName}`);
-  req.pipe(writeStream);
-  req.on("end", async () => {
-    return res.status(201).json({ message: "File Uploaded" })
+    userId: req.user._id,
   });
+  const fileId = insertedFile.insertedId.toString();
+
+  const fullFileName = `${fileId}${extension}`;
+
+  const writeStream = createWriteStream(`./storage/${fullFileName}`);
+  req.pipe(writeStream);
+
+  req.on("end", async () => {
+    return res.status(201).json({ message: "File Uploaded" });
+  });
+
   req.on("error", async () => {
-    console.log("error")
-    await filesCollection.deleteOne({ _id: insertedId })
-    return res.status(400).json("Could not upload file ")
-  })
+    await filesCollection.deleteOne({ _id: insertedFile.insertedId });
+    return res.status(404).json({ message: "Could not Upload File" });
+  });
 });
 
-//Read
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
-  const db = req.db
-  const fileData = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
-  if (!fileData) return res.status(404).json({ message: "File not found!" })
-  const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`
+  const db = req.db;
+  const filesCollection = db.collection("files");
+  const fileData = await filesCollection.findOne({
+    _id: new ObjectId(id),
+    userId: req.user._id,
+  });
+  // Check if file exists
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found!" });
+  }
+
+  // If "download" is requested, set the appropriate headers
+  const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`;
+
   if (req.query.action === "download") {
     return res.download(filePath, fileData.name);
   }
+
+  // Send file
   return res.sendFile(filePath, (err) => {
-    if (!res.setHeaders && err) {
-      return res.status(404).json({ error: "File not found!" })
+    if (!res.headersSent && err) {
+      return res.status(404).json({ error: "File not found!" });
     }
   });
 });
 
-// Update
 router.patch("/:id", async (req, res, next) => {
-  const { id } = req.params
-  const { newFilename } = req.body
-  const db = req.db
-  try {
-    const file = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
-    if (!file) return res.status(404).json({ error: "File not found." })
-    await db.collection("files").updateOne({ _id: new ObjectId(id) }, { $set: { name: newFilename || "untitled" } })
-    return res.status(200).json({ message: "Renamed" });
-  } catch (error) {
-    error.status = 500
-    next(error)
+  const { id } = req.params;
+  const db = req.db;
+  const filesCollection = db.collection("files");
+  const fileData = await filesCollection.findOne({
+    _id: new ObjectId(id),
+    userId: req.user._id,
+  });
+
+  // Check if file exists
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found!" });
   }
-});
-// Delete
-router.delete("/:id", async (req, res, next) => {
-  const { id } = req.params
-  const db = req.db
+
   try {
-    const file = await db.collection("files").findOne({ _id: new ObjectId(id), userId: req.user._id })
-    if (!file) return res.status(404).json({ error: "File not found." })
-    await db.collection("files").deleteOne({ _id: new ObjectId(id) })
-    await rm(`./storage/${id}${file.extension}`
+    await filesCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { name: req.body.newFilename } }
     );
-    return res.status(200).json({ message: "File Deleted Successfully" });
+    return res.status(200).json({ message: "Renamed" });
   } catch (err) {
-    next(err)
+    err.status = 500;
+    next(err);
   }
 });
 
-export default router
+router.delete("/:id", async (req, res, next) => {
+  const { id } = req.params;
+  const db = req.db;
+  const filesCollection = db.collection("files");
+  const fileData = await filesCollection.findOne({
+    _id: new ObjectId(id),
+    userId: req.user._id,
+  });
+
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found!" });
+  }
+
+  try {
+    await rm(`./storage/${id}${fileData.extension}`);
+    await filesCollection.deleteOne({ _id: fileData._id });
+    return res.status(200).json({ message: "File Deleted Successfully" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
