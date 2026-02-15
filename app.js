@@ -5,7 +5,7 @@ import directoryRoutes from "./routes/directoryRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import cookieParser from "cookie-parser";
 import { checkAuth } from "./authMiddleware.js";
-import { connectDB } from "./db.js";
+import { connectDB } from "./config/db.js";
 const db = await connectDB();
 
 const app = express();

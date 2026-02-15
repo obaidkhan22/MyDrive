@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { checkAuth } from "../authMiddleware.js";
 import { ObjectId } from "mongodb";
+import { client } from "../config/db.js";
 const router = Router();
 
 router.post("/register", async (req, res, next) => {
   const { name, email, password } = req.body;
+  const session = client.startSession();
+
   try {
     const db = req.db;
     const user = await db.collection("users").findOne({ email });
@@ -16,22 +19,30 @@ router.post("/register", async (req, res, next) => {
     }
     const rootDirId = new ObjectId();
     const userId = new ObjectId();
-    await db.collection("directories").insertOne({
-      _id: rootDirId,
-      name: `root-${email}`,
-      parentDirId: null,
-      userId,
-    });
 
-    await db.collection("users").insertOne({
-      _id: userId,
-      name,
-      email,
-      password,
-      rootDirId,
-    });
+    await db.collection("users").insertOne(
+      {
+        _id: userId,
+        name,
+        email,
+        password,
+        rootDirId,
+      },
+      { session },
+    );
+    await db.collection("directories").insertOne(
+      {
+        _id: rootDirId,
+        name: `root-${email}`,
+        parentDirId: null,
+        userId,
+      },
+      { session },
+    );
+    session.commitTransaction();
     return res.status(201).json({ message: "User  Registered" });
   } catch (error) {
+    session.abortTransaction();
     if (error.code === 121) {
       return res
         .status(400)
