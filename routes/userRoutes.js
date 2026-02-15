@@ -14,16 +14,14 @@ router.post("/register", async (req, res, next) => {
         message: "Register with a different email.",
       });
     }
-    const rootDirId = new ObjectId()
-    const userId = new ObjectId()
-      = await db
-        .collection("directories")
-        .insertOne({
-          _id: rootDirId,
-          name: `root-${email}`,
-          parentDirId: null,
-          userId
-        });
+    const rootDirId = new ObjectId();
+    const userId = new ObjectId();
+    await db.collection("directories").insertOne({
+      _id: rootDirId,
+      name: `root-${email}`,
+      parentDirId: null,
+      userId,
+    });
 
     await db.collection("users").insertOne({
       _id: userId,
@@ -34,7 +32,13 @@ router.post("/register", async (req, res, next) => {
     });
     return res.status(201).json({ message: "User  Registered" });
   } catch (error) {
-    next(error);
+    if (error.code === 121) {
+      return res
+        .status(400)
+        .json({ error: "Invalid Input. Please enter valid details." });
+    } else {
+      next(error);
+    }
   }
 });
 
