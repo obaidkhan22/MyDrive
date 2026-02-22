@@ -1,5 +1,7 @@
 import { ObjectId } from "mongodb";
 import { client } from "../config/db.js";
+import crypto from "node:crypto";
+export const mySecretKey = "Obaidullah";
 export const registerUser = async (req, res, next) => {
   const { name, email, password } = req.body;
   const session = client.startSession();
@@ -56,8 +58,20 @@ export const loginUser = async (req, res, next) => {
     if (!user || user.password !== password) {
       return res.status(404).json({ error: "Invalid Credentials." });
     }
-    const userId = user._id.toString();
-    res.cookie("uid", userId, {
+
+    const cookiePayload = JSON.stringify({
+      id: user._id.toString(),
+      expiry: Math.round(Date.now() / 1000 + 1000),
+    });
+    const signature = crypto
+      .createHash("sha256")
+      .update(mySecretKey)
+      .update(cookiePayload)
+      .update(mySecretKey)
+      .digest("base64url");
+
+    const signedCookie = `${Buffer.from(cookiePayload).toString("base64url")}.${signature}`;
+    res.cookie("token", signedCookie, {
       maxAge: 60 * 60 * 1000,
       sameSite: "none",
       secure: true,
