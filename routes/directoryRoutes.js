@@ -1,128 +1,20 @@
 import express from "express";
-import { rm } from "fs/promises";
+
 import validateIdMiddleware from "../middlewares/validateIdMiddleware.js";
-import { ObjectId } from "mongodb";
+import {
+  addDir,
+  deleteDirectory,
+  getDirectory,
+  updateDirName,
+} from "../controllers/directoryController.js";
 
 const router = express.Router();
 
 router.param("parentDirId", validateIdMiddleware);
 router.param("id", validateIdMiddleware);
+router.get("/:id?", getDirectory);
+router.post("/:parentDirId?", addDir);
+router.patch("/:id", updateDirName);
+router.delete("/:id", deleteDirectory);
 
-router.get("/:id?", async (req, res) => {
-  const db = req.db;
-  const dirCollection = db.collection("directories");
-  const user = req.user;
-  const _id = req.params.id ? new ObjectId(req.params.id) : user.rootDirId;
-  const directoryData = await dirCollection.findOne({ _id });
-  if (!directoryData) {
-    return res
-      .status(404)
-      .json({ error: "Directory not found or you do not have access to it!" });
-  }
-
-  const files = await db
-    .collection("files")
-    .find({ parentDirId: directoryData._id })
-    .toArray();
-  const directories = await dirCollection.find({ parentDirId: _id }).toArray();
-  return res.status(200).json({
-    ...directoryData,
-    files: files.map((dir) => ({ ...dir, id: dir._id })),
-    directories: directories.map((dir) => ({ ...dir, id: dir._id })),
-  });
-});
-
-router.post("/:parentDirId?", async (req, res, next) => {
-  const user = req.user;
-  const db = req.db;
-  const dirCollection = db.collection("directories");
-
-  const parentDirId = req.params.parentDirId
-    ? new ObjectId(req.params.parentDirId)
-    : user.rootDirId;
-  const dirname = req.headers.dirname || "New Folder";
-  try {
-    const parentDir = await dirCollection.findOne({
-      _id: parentDirId,
-    });
-
-    if (!parentDir)
-      return res
-        .status(404)
-        .json({ message: "Parent Directory Does not exist!" });
-
-    await dirCollection.insertOne({
-      name: dirname,
-      parentDirId,
-      userId: user._id,
-    });
-
-    return res.status(200).json({ message: "Directory Created!" });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.patch("/:id", async (req, res, next) => {
-  const user = req.user;
-  const { id } = req.params;
-  const { newDirName } = req.body;
-  const db = req.db;
-  const dirCollection = db.collection("directories");
-  try {
-    await dirCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        userId: user._id,
-      },
-      { $set: { name: newDirName } }
-    );
-    res.status(200).json({ message: "Directory Renamed!" });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.delete("/:id", async (req, res, next) => {
-  const { id } = req.params
-  const user = req.user
-  const dirId = new ObjectId(id) || req.user.rootDirId
-  const db = req.db
-  const filesCollection = db.collection("files")
-  const directoriesCollection = db.collection("directories")
-  const dirData = await dirCollection.findOne({ _id: dirId }, { projection: { _id: 1, userId: user._id } })
-  if (!dirData) return res.status(404).json({ error: "Directory not found." })
-  const getDirContent = async (dirId) => {
-    try {
-      let files = await filesCollection.find({ parentDirId: dirId }, { projection: { extension: 1 } }).toArray()
-      let directories = await directoriesCollection.find({ parentDirId: dirId }, { projection: { _id: 1 } }).toArray()
-      for (const item of directories) {
-        const { files: childFiles, directories: childDirectories } = await getDirContent(item._id)
-        files = [...files, ...childFiles]
-        directories = [...directories, ...childDirectories]
-      }
-      return { files, directories }
-
-    } catch (error) {
-      return res.status(500).json({ error: "Unexpected Error" })
-    }
-  }
-
-  try {
-    const { files, directories } = await getDirContent(dirId)
-    for (const { _id, extension } of files) {
-      await rm(`./storage/${_id.toString()}${extension}`);
-    }
-    const filesIds = files.map(({ _id }) => _id)
-    const directoriesIds = directories.map(({ _id }) => _id)
-    await filesCollection.deleteMany({ _id: { $in: filesIds } })
-    directoriesIds.push(new ObjectId(dirId))
-    await directoriesCollection.deleteMany({ _id: { $in: directoriesIds } })
-    res.status(200).json({ message: "Directory deleted Successfully." })
-
-  } catch (error) {
-    next(error)
-  }
-})
-
-export default router
+export default router;
