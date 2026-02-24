@@ -1,23 +1,25 @@
-import { ObjectId } from "mongodb";
-import { client } from "../config/db.js";
+import User from "../models/userModel.js";
+import Directory from "../models/directoryModel.js";
 import crypto from "node:crypto";
+import mongoose from "mongoose";
+import { Types } from "mongoose";
 export const mySecretKey = "Obaidullah";
 export const registerUser = async (req, res, next) => {
   const { name, email, password } = req.body;
-  const session = client.startSession();
+  const session = await mongoose.startSession();
   try {
     const db = req.db;
-    const user = await db.collection("users").findOne({ email });
+    const user = await User.findOne({ email });
     if (user) {
       return res.status(409).json({
         error: "User already exists.",
         message: "Register with a different email.",
       });
     }
-    const rootDirId = new ObjectId();
-    const userId = new ObjectId();
+    const rootDirId = new Types.ObjectId();
+    const userId = new Types.ObjectId();
 
-    await db.collection("users").insertOne(
+    await User.insertOne(
       {
         _id: userId,
         name,
@@ -27,7 +29,7 @@ export const registerUser = async (req, res, next) => {
       },
       { session },
     );
-    await db.collection("directories").insertOne(
+    await Directory.insertOne(
       {
         _id: rootDirId,
         name: `root-${email}`,
@@ -37,7 +39,7 @@ export const registerUser = async (req, res, next) => {
       { session },
     );
     session.commitTransaction();
-    return res.status(201).json({ message: "User  Registered" });
+    return res.status(201).json({ message: "User Registered" });
   } catch (error) {
     session.abortTransaction();
     if (error.code === 121) {
@@ -53,8 +55,7 @@ export const registerUser = async (req, res, next) => {
 export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const db = req.db;
-    const user = await db.collection("users").findOne({ email });
+    const user = await User.findOne({ email });
     if (!user || user.password !== password) {
       return res.status(404).json({ error: "Invalid Credentials." });
     }
@@ -72,7 +73,7 @@ export const loginUser = async (req, res, next) => {
 
     const signedCookie = `${Buffer.from(cookiePayload).toString("base64url")}.${signature}`;
     res.cookie("token", signedCookie, {
-      maxAge: 60 * 60 * 1000,
+      maxAge: 60 * 60 * 10000,
       sameSite: "none",
       secure: true,
       httpOnly: true,

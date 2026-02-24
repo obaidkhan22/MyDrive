@@ -1,6 +1,6 @@
-import { ObjectId } from "mongodb";
 import crypto from "node:crypto";
 import { mySecretKey } from "./controllers/authController.js";
+import User from "./models/userModel.js";
 
 export const checkAuth = async (req, res, next) => {
   const { token } = req.cookies;
@@ -26,8 +26,7 @@ export const checkAuth = async (req, res, next) => {
     res.clearCookie("token");
     return res.status(401).json({ error: "Not logged in." });
   }
-  const db = req.db;
-  const user = await db.collection("users").findOne({ _id: new ObjectId(id) });
+  const user = await User.findOne({ _id: id });
   if (!user) {
     return res.status(401).json({ message: "Not logged in!" });
   }
