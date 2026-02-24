@@ -1,5 +1,4 @@
 import { rm } from "fs/promises";
-import { ObjectId } from "mongodb";
 import Directory from "../models/directoryModel.js";
 import File from "../models/fileModel.js";
 export const getDirectory = async (req, res) => {
@@ -22,9 +21,7 @@ export const getDirectory = async (req, res) => {
 
 export const addDir = async (req, res, next) => {
   const user = req.user;
-  const parentDirId = req.params.parentDirId
-    ? new ObjectId(req.params.parentDirId)
-    : user.rootDirId;
+  const parentDirId = req.params.parentDirId || user.rootDirId;
 
   const dirname = req.headers.dirname || "New Folder";
   try {
@@ -71,7 +68,7 @@ export const updateDirName = async (req, res, next) => {
 export const deleteDirectory = async (req, res, next) => {
   const { id } = req.params;
   const user = req.user;
-  const dirId = new ObjectId(id) || req.user.rootDirId;
+  const dirId = id || req.user.rootDirId;
   const dirData = await Directory.findOne({ _id: id, userId: user._id }).select(
     "_id",
   );

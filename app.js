@@ -5,9 +5,8 @@ import directoryRoutes from "./routes/directoryRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import cookieParser from "cookie-parser";
 import { checkAuth } from "./authMiddleware.js";
-import { connectDB } from "./config/db.js";
-import "./config/mongooseConnect.js";
-const db = await connectDB();
+import connectDB from "./config/db.js";
+await connectDB();
 
 const app = express();
 
@@ -19,10 +18,6 @@ app.use(
     credentials: true,
   }),
 );
-app.use((req, res, next) => {
-  req.db = db;
-  next();
-});
 app.use("/file", checkAuth, fileRoutes);
 app.use("/directory", checkAuth, directoryRoutes);
 app.use("/user", userRoutes);

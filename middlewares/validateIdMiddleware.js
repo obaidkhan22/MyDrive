@@ -1,7 +1,7 @@
-import { ObjectId } from "mongodb";
+import mongoose from "mongoose";
 
 export default function validateIdMiddleware(req, res, next, id) {
-  if (!ObjectId.isValid(id)) {
+  if (!mongoose.isValidObjectId(id)) {
     return res.status(400).json({ message: `Invalid ID: ${id}` });
   }
   next();

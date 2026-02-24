@@ -1,15 +1,12 @@
 import { createWriteStream } from "fs";
 import { rm } from "fs/promises";
 import path from "path";
-import { ObjectId } from "mongodb";
-
+import File from "../models/fileModel.js";
+import Directory from "../models/directoryModel.js";
 export const createFile = async (req, res, next) => {
-  const db = req.db;
-  const dirCollection = db.collection("directories");
-  const filesCollection = await db.collection("files");
   const parentDirId = req.params.parentDirId || req.user.rootDirId;
-  const parentDirData = await dirCollection.findOne({
-    _id: new ObjectId(parentDirId),
+  const parentDirData = await Directory.findOne({
+    _id: parentDirId,
     userId: req.user._id,
   });
 
@@ -21,14 +18,13 @@ export const createFile = async (req, res, next) => {
   const filename = req.headers.filename || "untitled";
   const extension = path.extname(filename);
 
-  const insertedFile = await filesCollection.insertOne({
+  const insertedFile = await File.insertOne({
     extension,
     name: filename,
     parentDirId: parentDirData._id,
     userId: req.user._id,
   });
-  const fileId = insertedFile.insertedId.toString();
-
+  const fileId = insertedFile.id;
   const fullFileName = `${fileId}${extension}`;
 
   const writeStream = createWriteStream(`./storage/${fullFileName}`);
@@ -39,27 +35,25 @@ export const createFile = async (req, res, next) => {
   });
 
   req.on("error", async () => {
-    await filesCollection.deleteOne({ _id: insertedFile.insertedId });
+    await File.deleteOne();
     return res.status(404).json({ message: "Could not Upload File" });
   });
 };
 
 export const getFile = async (req, res) => {
   const { id } = req.params;
-  const db = req.db;
-  const filesCollection = db.collection("files");
-  const fileData = await filesCollection.findOne({
-    _id: new ObjectId(id),
+  const file = await File.findOne({
+    _id: id,
     userId: req.user._id,
-  });
+  }).select("extension name");
   // Check if file exists
-  if (!fileData) {
+  if (!file) {
     return res.status(404).json({ error: "File not found!" });
   }
-  const filePath = `${process.cwd()}/storage/${id}${fileData.extension}`;
+  const filePath = `${process.cwd()}/storage/${id}${file.extension}`;
 
   if (req.query.action === "download") {
-    return res.download(filePath, fileData.name);
+    return res.download(filePath, file.name);
   }
 
   // Send file
@@ -70,25 +64,20 @@ export const getFile = async (req, res) => {
   });
 };
 
-export const updateFile = async (req, res, next) => {
-  const { id } = req.params;
-  const db = req.db;
-  const filesCollection = db.collection("files");
-  const fileData = await filesCollection.findOne({
-    _id: new ObjectId(id),
-    userId: req.user._id,
-  });
-
-  // Check if file exists
-  if (!fileData) {
-    return res.status(404).json({ error: "File not found!" });
-  }
-
+export const renameFile = async (req, res, next) => {
   try {
-    await filesCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { name: req.body.newFilename } },
-    );
+    const { id } = req.params;
+    const file = await File.findOne({
+      _id: id,
+      userId: req.user._id,
+    });
+
+    // Check if file exists
+    if (!file) {
+      return res.status(404).json({ error: "File not found!" });
+    }
+    file.name = req.body.newFilename;
+    await file.save();
     return res.status(200).json({ message: "Renamed" });
   } catch (err) {
     err.status = 500;
@@ -97,21 +86,18 @@ export const updateFile = async (req, res, next) => {
 };
 
 export const deleteFile = async (req, res, next) => {
-  const { id } = req.params;
-  const db = req.db;
-  const filesCollection = db.collection("files");
-  const fileData = await filesCollection.findOne({
-    _id: new ObjectId(id),
-    userId: req.user._id,
-  });
-
-  if (!fileData) {
-    return res.status(404).json({ error: "File not found!" });
-  }
-
   try {
-    await rm(`./storage/${id}${fileData.extension}`);
-    await filesCollection.deleteOne({ _id: fileData._id });
+    const { id } = req.params;
+    const file = await File.findOne({
+      _id: id,
+      userId: req.user._id,
+    }).select("extension");
+
+    if (!file) {
+      return res.status(404).json({ error: "File not found!" });
+    }
+    await rm(`./storage/${id}${file.extension}`);
+    await file.deleteOne();
     return res.status(200).json({ message: "File Deleted Successfully" });
   } catch (err) {
     next(err);
