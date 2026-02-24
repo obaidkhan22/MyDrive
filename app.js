@@ -6,6 +6,7 @@ import userRoutes from "./routes/userRoutes.js";
 import cookieParser from "cookie-parser";
 import { checkAuth } from "./authMiddleware.js";
 import { connectDB } from "./config/db.js";
+import "./config/mongooseConnect.js";
 const db = await connectDB();
 
 const app = express();
@@ -27,7 +28,7 @@ app.use("/directory", checkAuth, directoryRoutes);
 app.use("/user", userRoutes);
 
 app.use((err, req, res, next) => {
-  return res.status(err.status || 500).json({ error: "Something Went Wrong!" });
+  return res.status(err.status || 500).json({ error: err.message });
 });
 
 app.listen(4000, () => {

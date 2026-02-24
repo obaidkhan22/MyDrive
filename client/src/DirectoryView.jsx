@@ -47,6 +47,7 @@ function DirectoryView() {
   async function handleFetchErrors(response) {
     if (!response.ok) {
       const data = await response.json();
+      console.log(data);
       throw new Error(data.message);
     }
     return response;
