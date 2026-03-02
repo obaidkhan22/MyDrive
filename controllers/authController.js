@@ -8,7 +8,6 @@ export const registerUser = async (req, res, next) => {
   const { name, email, password } = req.body;
   const session = await mongoose.startSession();
   try {
-    const db = req.db;
     const user = await User.findOne({ email });
     if (user) {
       return res.status(409).json({
@@ -64,17 +63,10 @@ export const loginUser = async (req, res, next) => {
       id: user._id.toString(),
       expiry: Math.round(Date.now() / 1000 + 1000),
     });
-    const signature = crypto
-      .createHash("sha256")
-      .update(mySecretKey)
-      .update(cookiePayload)
-      .update(mySecretKey)
-      .digest("base64url");
-
-    const signedCookie = `${Buffer.from(cookiePayload).toString("base64url")}.${signature}`;
-    res.cookie("token", signedCookie, {
+    res.cookie("token", Buffer.from(cookiePayload).toString("base64url"), {
       maxAge: 60 * 60 * 10000,
       sameSite: "none",
+      signed: true,
       secure: true,
       httpOnly: true,
     });
