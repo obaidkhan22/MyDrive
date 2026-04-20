@@ -4,7 +4,6 @@ import User from "./models/userModel.js";
 
 export const checkAuth = async (req, res, next) => {
   const { token } = req.signedCookies;
-  console.log(token)
   if (!token) {
     res.clearCookie("token")
     return res.status(401).json({ message: "Not logged in!" });

@@ -2,8 +2,9 @@ import mongoose from "mongoose";
 
 export default async function connectDB() {
   try {
-    await mongoose.connect("mongodb://localhost:27017/storageApp");
+    const result = await mongoose.connect("mongodb://localhost:27017/storageApp");
     console.log("Successfully connected to MongoDB.");
+    return result
   } catch (error) {
     console.log(error.message);
     await mongoose.disconnect();

@@ -1,13 +1,14 @@
 import User from "../models/userModel.js";
 import Directory from "../models/directoryModel.js";
-import crypto from "node:crypto";
 import mongoose from "mongoose";
 import { Types } from "mongoose";
+import bcrypt from 'bcrypt'
 export const mySecretKey = "Obaidullah";
 export const registerUser = async (req, res, next) => {
   const { name, email, password } = req.body;
   const session = await mongoose.startSession();
   try {
+    session.startTransaction()
     const user = await User.findOne({ email });
     if (user) {
       return res.status(409).json({
@@ -17,13 +18,14 @@ export const registerUser = async (req, res, next) => {
     }
     const rootDirId = new Types.ObjectId();
     const userId = new Types.ObjectId();
-
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(password, salt)
     await User.insertOne(
       {
         _id: userId,
         name,
         email,
-        password,
+        password: hashedPassword,
         rootDirId,
       },
       { session },
@@ -37,7 +39,7 @@ export const registerUser = async (req, res, next) => {
       },
       { session },
     );
-    session.commitTransaction();
+    await session.commitTransaction();
     return res.status(201).json({ message: "User Registered" });
   } catch (error) {
     session.abortTransaction();
@@ -55,10 +57,14 @@ export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || user.password !== password) {
+    if (!user) {
       return res.status(404).json({ error: "Invalid Credentials." });
     }
+    const isValidPassword = await bcrypt.compare(password, user.password)
+    if (!isValidPassword) {
+      return res.status(404).json({ error: "Invalid Credentials." });
 
+    }
     const cookiePayload = JSON.stringify({
       id: user._id.toString(),
       expiry: Math.round(Date.now() / 1000 + 1000),
